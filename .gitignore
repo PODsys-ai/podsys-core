@@ -4,3 +4,5 @@ build/
 .envs/
 .env/
 .venv/
+__pycache__/
+monitor.txt
