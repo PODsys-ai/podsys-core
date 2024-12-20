@@ -45,7 +45,9 @@ app.config["isFinished"] = False
 
 
 # generation monitor.txt temple and Count the total number of machines to be installed
-app.config["countMachines"] = generation_monitor_temple()
+app.config["countMachines"] = generation_monitor_temple(
+    "/var/www/html/workspace/iplist.txt"
+)
 
 current_year = datetime.now().year
 
@@ -65,9 +67,16 @@ total_ips = get_len_iprange(dhcp_s, dhcp_e)
 
 @app.route("/updateusedip")
 def updateusedip():
-    with open("/var/lib/misc/dnsmasq.leases", "r") as file:
-        lines = file.readlines()
-    return jsonify({"usedip": len(lines)})
+    try:
+        with open("/var/lib/misc/dnsmasq.leases", "r") as file:
+            lines = file.readlines()
+        return jsonify({"usedip": len(lines)})
+    except FileNotFoundError:
+        print("Error: The file /var/lib/misc/dnsmasq.leases does not exist.")
+        return jsonify({"usedip": 0}), 404
+    except Exception as e:
+        print(f"An error occurred while reading the file: {e}")
+        return jsonify({"usedip": 0}), 500
 
 
 @app.route("/speed")
@@ -304,7 +313,7 @@ def open_file(file_path):
 
 @app.route("/refresh_count")
 def refresh_data():
-    cnt_start_tag = count_dnsmasq()
+    cnt_start_tag = count_dnsmasq("/var/www/html/workspace/log/dnsmasq.log")
 
     (
         cnt_Initrd,
@@ -316,7 +325,7 @@ def refresh_data():
         cnt_ib,
         cnt_nvidia,
         cnt_cuda,
-    ) = count_access()
+    ) = count_access("/var/www/html/workspace/log/access.log")
 
     if os.getenv("download_mode") in ["p2p", "nfs"]:
         cnt_ib = app.config["count_ib"]

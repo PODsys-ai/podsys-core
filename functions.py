@@ -35,7 +35,6 @@ compute_storage:sda
         "dhcp_e": dhcp_e,
         "compute_passwd": compute_passwd,
         "compute_storage": compute_storage,
-        
     }
 
 
@@ -48,7 +47,7 @@ def get_len_iprange(start_ip, end_ip):
 
 
 # count for ipxe
-def count_access():
+def count_access(access_log_path):
     Initrd_count = 0
     vmlinuz_count = 0
     iso_count = 0
@@ -59,26 +58,33 @@ def count_access():
     nvidia_count = 0
     cuda_count = 0
 
-    with open("/var/www/html/workspace/log/access.log", "r") as file:
-        for line in file:
-            if "initrd" in line:
-                Initrd_count += 1
-            if "vmlinuz" in line:
-                vmlinuz_count += 1
-            if "ubuntu-22.04.5-live" in line:
-                iso_count += 1
-            if "user-data" in line:
-                userdata_count += 1
-            if "preseed.sh" in line:
-                preseed_count += 1
-            if "common.tgz" in line:
-                common_count += 1
-            if "ib.tgz" in line:
-                ib_count += 1
-            if "nvidia.tgz" in line:
-                nvidia_count += 1
-            if "cuda" in line:
-                cuda_count += 1
+    try:
+        with open(access_log_path, "r") as file:
+            for line in file:
+                if "initrd" in line:
+                    Initrd_count += 1
+                if "vmlinuz" in line:
+                    vmlinuz_count += 1
+                if "ubuntu-22.04.5-live" in line:
+                    iso_count += 1
+                if "user-data" in line:
+                    userdata_count += 1
+                if "preseed.sh" in line:
+                    preseed_count += 1
+                if "common.tgz" in line:
+                    common_count += 1
+                if "ib.tgz" in line:
+                    ib_count += 1
+                if "nvidia.tgz" in line:
+                    nvidia_count += 1
+                if "cuda" in line:
+                    cuda_count += 1
+    except FileNotFoundError:
+        print(f"Error: The file {access_log_path} does not exist.")
+        return (-1, -1, -1, -1, -1, -1, -1, -1, -1)
+    except IOError as e:
+        print(f"An error occurred while reading the file: {e}")
+        return (-1, -1, -1, -1, -1, -1, -1, -1, -1)
 
     return (
         Initrd_count // 2,
@@ -94,21 +100,28 @@ def count_access():
 
 
 # for ipxe
-def count_dnsmasq():
+def count_dnsmasq(dnsmasq_log_path):
     starttag_count = 0
-    with open("/var/www/html/workspace/log/dnsmasq.log", "r") as file:
-        for line in file:
-            if "ipxe_ubuntu2204/ubuntu2204.cfg" in line:
-                starttag_count += 1
+    try:
+        with open(dnsmasq_log_path, "r") as file:
+            for line in file:
+                if "ipxe_ubuntu2204/ubuntu2204.cfg" in line:
+                    starttag_count += 1
+    except FileNotFoundError:
+        print(f"Error: The file {dnsmasq_log_path} does not exist.")
+        return -1
     return starttag_count
 
 
 # generation monitor.txt temple and count lens
-def generation_monitor_temple():
-    with open(
-        "/var/www/html/workspace/iplist.txt", "r", encoding="utf-8"
-    ) as original_file:
-        lines = original_file.readlines()
+def generation_monitor_temple(iplist_path):
+    try:
+        with open(iplist_path, "r", encoding="utf-8") as original_file:
+            lines = original_file.readlines()
+    except FileNotFoundError:
+        print(f"Error: The file {iplist_path} does not exist.")
+        return 0
+
     processed_lines = [
         "{} {} {} F F F F F click\n".format(
             line.strip().split()[2], line.strip().split()[0], line.strip().split()[1]
