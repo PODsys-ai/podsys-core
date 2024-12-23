@@ -146,6 +146,7 @@ def favicon():
 
 
 # debug mode
+# curl -X POST -d "serial=$SN&lsblk=$lsblk_output&ipa=$ipa_output" http://"$G_SERVER_IP":5000/debug
 @app.route("/debug", methods=["POST"])
 def debug():
     serial_number = request.form.get("serial")
@@ -169,8 +170,7 @@ def debug():
 
     return "Get Debug Info", 200
 
-
-# get POST
+# curl -X POST -d "serial=$SN" http://"${SERVER_IP}":5000/receive_serial_s
 @app.route("/receive_serial_s", methods=["POST"])
 def receive_serial_s():
     serial_number = request.form.get("serial")
@@ -181,6 +181,7 @@ def receive_serial_s():
         return "No serial number.", 400
 
 
+# curl -X POST -d "serial=$SN&log=$log_name" "http://${SERVER_IP}:5000/updatelog"
 @app.route("/updatelog", methods=["POST"])
 def updatelog():
     serial_number = request.form.get("serial")
@@ -192,6 +193,7 @@ def updatelog():
         return "No serial number.", 400
 
 
+# curl -X POST -d "serial=$SN&diskstate=none|ok|nomatch" "http://${SERVER_IP}:5000/diskstate"
 @app.route("/diskstate", methods=["POST"])
 def diskstate():
     serial_number = request.form.get("serial")
@@ -203,6 +205,7 @@ def diskstate():
         return "No diskstate", 400
 
 
+# curl -X POST -d "serial=$SN&gpustate=ok" "http://${SERVER_IP}:5000/gpustate"
 @app.route("/gpustate", methods=["POST"])
 def gpustate():
     serial_number = request.form.get("serial")
@@ -214,6 +217,7 @@ def gpustate():
         return "No gpustate", 400
 
 
+# curl -X POST -d "serial=$SN&ibstate=ok" "http://${SERVER_IP}:5000/ibstate"
 @app.route("/ibstate", methods=["POST"])
 def ibstate():
     serial_number = request.form.get("serial")
@@ -224,7 +228,7 @@ def ibstate():
     else:
         return "No ibstate", 400
 
-
+# curl -X POST  "http://${SERVER_IP}:5000/receive_p2p_status"
 @app.route("/receive_p2p_status", methods=["POST"])
 def receive_p2p_status():
     app.config["count_common"] = app.config["count_common"] + 1
@@ -234,27 +238,20 @@ def receive_p2p_status():
     return "Get p2p status", 200
 
 
-@app.route("/receive_common_nfs", methods=["POST"])
-def receive_common_nfs():
-    app.config["count_common"] = app.config["count_common"] + 1
-    return "Get nfs status", 200
-
-
-@app.route("/receive_ib_nfs", methods=["POST"])
-def receive_ib_nfs():
-    app.config["count_ib"] = app.config["count_ib"] + 1
-    return "Get nfs status", 200
-
-
-@app.route("/receive_nvidia_nfs", methods=["POST"])
-def receive_nvidia_nfs():
-    app.config["count_nvidia"] = app.config["count_nvidia"] + 1
-    return "Get nfs status", 200
-
-
-@app.route("/receive_cuda_nfs", methods=["POST"])
-def receive_cuda_nfs():
-    app.config["count_cuda"] = app.config["count_cuda"] + 1
+# curl -X POST -d "file=common" "http://${SERVER_IP}:5000/receive_nfs_status"
+@app.route("/receive_nfs_status", methods=["POST"])
+def receive_nfs_status():
+    file = request.form.get("file")
+    if file == "common":
+        app.config["count_common"] = app.config["count_common"] + 1
+    elif file == "ib":
+        app.config["count_ib"] = app.config["count_ib"] + 1
+    elif file == "nvidia":
+        app.config["count_nvidia"] = app.config["count_nvidia"] + 1
+    elif file == "cuda":
+        app.config["count_cuda"] = app.config["count_cuda"] + 1
+    else:
+        print("Error: receive_nfs_status")
     return "Get nfs status", 200
 
 

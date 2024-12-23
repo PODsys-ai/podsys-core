@@ -5,4 +5,5 @@ build/
 .env/
 .venv/
 __pycache__/
+.gitconfig
 monitor.txt
