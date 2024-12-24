@@ -17,7 +17,6 @@ from functions import (
 import os
 import psutil
 import time
-import csv
 import re
 
 app = Flask(__name__)
@@ -33,9 +32,9 @@ app.config["firstInstallTime"] = None
 app.config["installTimeDiff"] = None
 app.config["finishedCount"] = 0
 
-# counts of ib nvidia and ib cuda when use p2p or nfs mode
-app.config["count_ib"] = 0
+# counts of common ib nvidia cuda when use p2p or nfs mode
 app.config["count_common"] = 0
+app.config["count_ib"] = 0
 app.config["count_nvidia"] = 0
 app.config["count_cuda"] = 0
 
@@ -43,16 +42,20 @@ app.config["count_cuda"] = 0
 app.config["counts_receive_serial_e"] = 0
 app.config["isFinished"] = False
 
+iplist_path = "/var/www/html/workspace/iplist.txt"
+access_log_path = "/var/www/html/workspace/log/access.log"
+dnsmasq_log_path = "/var/www/html/workspace/log/dnsmasq.log"
+config_yaml_path = "/var/www/html/workspace/config.yaml"
 
-# generation monitor.txt temple and Count the total number of machines to be installed
-app.config["countMachines"] = generation_monitor_temple(
-    "/var/www/html/workspace/iplist.txt"
-)
+# generation monitor.txt temple and Count the total number of machines in the iplist.txt
+app.config["monitor_data"] = generation_monitor_temple(iplist_path)
+app.config["countMachines"] = len(app.config["monitor_data"]) - 1
+
 
 current_year = datetime.now().year
 
 # Network Speed DHCP config.yaml
-config_data = parse_config("/var/www/html/workspace/config.yaml")
+config_data = parse_config(config_yaml_path)
 
 interface = config_data["manager_nic"]
 dhcp_s = config_data["dhcp_s"]
@@ -100,8 +103,8 @@ def get_speed():
 def get_time():
 
     if not app.config["isGetStartTime"]:
-        if os.path.exists("/var/www/html/workspace/log/dnsmasq.log"):
-            with open("/var/www/html/workspace/log/dnsmasq.log", "r") as file:
+        if os.path.exists(dnsmasq_log_path):
+            with open(dnsmasq_log_path, "r") as file:
                 for line in file:
                     if "ipxe_ubuntu2204/ubuntu2204.cfg" in line:
                         time_regex = r"(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})"
@@ -130,7 +133,7 @@ def get_time():
         time4 = app.config["installTimeDiff"]
         if time3 < time4:
             app.config["isFinished"] = True
-            install_timeout()
+            app.config["monitor_data"] = install_timeout(app.config["monitor_data"])
 
     temp = app.config["installTime"]
     if app.config["installTime"] == 0:
@@ -170,24 +173,17 @@ def debug():
 
     return "Get Debug Info", 200
 
+
 # curl -X POST -d "serial=$SN" http://"${SERVER_IP}":5000/receive_serial_s
 @app.route("/receive_serial_s", methods=["POST"])
 def receive_serial_s():
     serial_number = request.form.get("serial")
     if serial_number:
-        update_installing_status(serial_number)
-        return "Get Serial number", 200
-    else:
-        return "No serial number.", 400
-
-
-# curl -X POST -d "serial=$SN&log=$log_name" "http://${SERVER_IP}:5000/updatelog"
-@app.route("/updatelog", methods=["POST"])
-def updatelog():
-    serial_number = request.form.get("serial")
-    log_name = request.form.get("log")
-    if serial_number and log_name:
-        update_logname(serial_number, log_name)
+        found, updated_monitor_data = update_installing_status(
+            app.config["monitor_data"], serial_number
+        )
+        if found:
+            app.config["monitor_data"] = updated_monitor_data
         return "Get Serial number", 200
     else:
         return "No serial number.", 400
@@ -199,22 +195,14 @@ def diskstate():
     serial_number = request.form.get("serial")
     diskstate = request.form.get("diskstate")
     if serial_number and diskstate:
-        update_diskstate(serial_number, diskstate)
+        found, updated_monitor_data = update_diskstate(
+            app.config["monitor_data"], serial_number, diskstate
+        )
+        if found:
+            app.config["monitor_data"] = updated_monitor_data
         return "Get diskstate", 200
     else:
         return "No diskstate", 400
-
-
-# curl -X POST -d "serial=$SN&gpustate=ok" "http://${SERVER_IP}:5000/gpustate"
-@app.route("/gpustate", methods=["POST"])
-def gpustate():
-    serial_number = request.form.get("serial")
-    gpustate = request.form.get("gpustate")
-    if serial_number and gpustate:
-        update_gpustate(serial_number, gpustate)
-        return "Get gpustate", 200
-    else:
-        return "No gpustate", 400
 
 
 # curl -X POST -d "serial=$SN&ibstate=ok" "http://${SERVER_IP}:5000/ibstate"
@@ -223,10 +211,47 @@ def ibstate():
     serial_number = request.form.get("serial")
     ibstate = request.form.get("ibstate")
     if serial_number and ibstate:
-        update_ibstate(serial_number, ibstate)
+        found, updated_monitor_data = update_ibstate(
+            app.config["monitor_data"], serial_number, ibstate
+        )
+        if found:
+            app.config["monitor_data"] = updated_monitor_data
         return "Get ibstate", 200
     else:
         return "No ibstate", 400
+
+
+# curl -X POST -d "serial=$SN&gpustate=ok" "http://${SERVER_IP}:5000/gpustate"
+@app.route("/gpustate", methods=["POST"])
+def gpustate():
+    serial_number = request.form.get("serial")
+    gpustate = request.form.get("gpustate")
+    if serial_number and gpustate:
+        found, updated_monitor_data = update_gpustate(
+            app.config["monitor_data"], serial_number, gpustate
+        )
+        if found:
+            app.config["monitor_data"] = updated_monitor_data
+        return "Get gpustate", 200
+    else:
+        return "No gpustate", 400
+
+
+# curl -X POST -d "serial=$SN&log=$log_name" "http://${SERVER_IP}:5000/updatelog"
+@app.route("/updatelog", methods=["POST"])
+def updatelog():
+    serial_number = request.form.get("serial")
+    logname = request.form.get("log")
+    if serial_number and logname:
+        found, updated_monitor_data = update_logname(
+            app.config["monitor_data"], serial_number, logname
+        )
+        if found:
+            app.config["monitor_data"] = updated_monitor_data
+        return "Get Serial number", 200
+    else:
+        return "No serial number.", 400
+
 
 # curl -X POST  "http://${SERVER_IP}:5000/receive_p2p_status"
 @app.route("/receive_p2p_status", methods=["POST"])
@@ -259,8 +284,8 @@ def receive_nfs_status():
 def receive_serial_e():
 
     if not app.config["isGetStartTime"]:
-        if os.path.exists("/var/www/html/workspace/log/dnsmasq.log"):
-            with open("/var/www/html/workspace/log/dnsmasq.log", "r") as file:
+        if os.path.exists(dnsmasq_log_path):
+            with open(dnsmasq_log_path, "r") as file:
                 for line in file:
                     if "ipxe_ubuntu2204/ubuntu2204.cfg" in line:
                         time_regex = r"(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})"
@@ -289,7 +314,12 @@ def receive_serial_e():
 
     serial_number = request.form.get("serial")
     if serial_number:
-        update_finished_status(serial_number)
+        found, updated_monitor_data = update_finished_status(
+            app.config["monitor_data"], serial_number
+        )
+        if found:
+            app.config["monitor_data"] = updated_monitor_data
+
         return "Get Serial number", 200
     else:
         return "No serial number", 400
@@ -310,7 +340,7 @@ def open_file(file_path):
 
 @app.route("/refresh_count")
 def refresh_data():
-    cnt_start_tag = count_dnsmasq("/var/www/html/workspace/log/dnsmasq.log")
+    cnt_start_tag = count_dnsmasq(dnsmasq_log_path)
 
     (
         cnt_Initrd,
@@ -322,7 +352,7 @@ def refresh_data():
         cnt_ib,
         cnt_nvidia,
         cnt_cuda,
-    ) = count_access("/var/www/html/workspace/log/access.log")
+    ) = count_access(access_log_path)
 
     if os.getenv("download_mode") in ["p2p", "nfs"]:
         cnt_ib = app.config["count_ib"]
@@ -350,9 +380,8 @@ def refresh_data():
 
 @app.route("/get_state_table")
 def get_state_table():
-    with open("monitor.txt", "r", encoding="utf-8") as file:
-        reader = csv.DictReader(file, delimiter=" ")
-        data = list(reader)
+    headers = app.config["monitor_data"][0]
+    data = [dict(zip(headers, row)) for row in app.config["monitor_data"][1:]]
     table_content = render_template("state.html", data=data)
     return table_content
 

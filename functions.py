@@ -1,4 +1,3 @@
-import fcntl
 import ipaddress
 import re
 
@@ -113,7 +112,7 @@ def count_dnsmasq(dnsmasq_log_path):
     return starttag_count
 
 
-# generation monitor.txt temple and count lens
+# generation monitor.txt temple
 def generation_monitor_temple(iplist_path):
     try:
         with open(iplist_path, "r", encoding="utf-8") as original_file:
@@ -122,214 +121,121 @@ def generation_monitor_temple(iplist_path):
         print(f"Error: The file {iplist_path} does not exist.")
         return 0
 
+    # Create the header
+    header = ["IP Serial_Number HostName Installing Disk IB GPU Finished log".split()]
     processed_lines = [
-        "{} {} {} F F F F F click\n".format(
-            line.strip().split()[2], line.strip().split()[0], line.strip().split()[1]
-        )
+        [line.strip().split()[2], line.strip().split()[0], line.strip().split()[1]]
+        + ["F", "F", "F", "F", "F", "click"]
         for line in lines
     ]
+    monitor_data = header + processed_lines
 
-    with open("monitor.txt", "w", encoding="utf-8") as new_file:
-        new_file.write(
-            "IP Serial_Number HostName Installing Disk IB GPU Finished log\n"
-        )
-        new_file.writelines(processed_lines)
-    return len(lines)
+    return monitor_data
 
 
-def update_installing_status(serial_number):
-    with open("monitor.txt", "r+") as file:
-        try:
-            fd = file.fileno()
-            fcntl.flock(fd, fcntl.LOCK_EX)
-            lines = file.readlines()
+def update_installing_status(monitor_data, serial_number):
+    found = False
+    for i, line in enumerate(monitor_data):
+        if i == 0:
+            continue
+        parts = line
+        if parts[1] == serial_number and parts[3] == "F":
+            monitor_data[i][3] = "T"
+            found = True
 
-            found = False
-            for i, line in enumerate(lines):
-                parts = line.strip().split()
-                if len(parts) >= 4 and parts[1] == serial_number and parts[3] == "F":
-                    lines[i] = " ".join(parts[:3]) + " T " + " ".join(parts[4:]) + "\n"
-                    found = True
-
-            if found:
-                file.seek(0)
-                file.writelines(lines)
-                file.truncate()
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+    return found, monitor_data
 
 
-def update_logname(serial, logname):
+def update_diskstate(monitor_data, serial_number, diskstate):
+    found = False
+    for i, line in enumerate(monitor_data):
+        if i == 0:
+            continue
+        parts = line
+        if (
+            parts[1] == serial_number
+            and parts[4] == "F"
+            or parts[4] == "W"
+            or parts[4] == "M"
+        ):
 
-    with open("monitor.txt", "r+") as file:
-        fd = file.fileno()
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        try:
-            lines = file.readlines()
-            updated_lines = []
-            for line in lines:
-                parts = line.strip().split()
-                if len(parts) >= 2 and parts[1] == serial:
-                    parts[-1] = logname
-                updated_line = " ".join(parts) + "\n"
-                updated_lines.append(updated_line)
+            if diskstate == "ok":
+                monitor_data[i][4] = "T"
+            elif diskstate == "nomatch":
+                monitor_data[i][4] = "M"
+            else:
+                monitor_data[i][4] = "W"
+            found = True
 
-            file.seek(0)
-            file.truncate()
-            file.writelines(updated_lines)
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-
-
-def update_diskstate(serial_number, diskstate):
-    with open("monitor.txt", "r+") as file:
-        fd = file.fileno()
-        fcntl.flock(fd, fcntl.LOCK_EX)
-
-        try:
-            lines = file.readlines()
-
-            found = False
-            for i, line in enumerate(lines):
-                parts = line.strip().split()
-                if (
-                    len(parts) >= 5
-                    and parts[1] == serial_number
-                    and (parts[4] == "F" or parts[4] == "W" or parts[4] == "M")
-                ):
-                    if diskstate == "ok":
-                        lines[i] = (
-                            " ".join(parts[:4]) + " T " + " ".join(parts[5:]) + "\n"
-                        )
-                    elif diskstate == "nomatch":
-                        lines[i] = (
-                            " ".join(parts[:4]) + " M " + " ".join(parts[5:]) + "\n"
-                        )
-                    else:
-                        lines[i] = (
-                            " ".join(parts[:4]) + " W " + " ".join(parts[5:]) + "\n"
-                        )
-                    found = True
-
-            if found:
-                file.seek(0)
-                file.truncate()
-                file.writelines(lines)
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+    return found, monitor_data
 
 
-def update_ibstate(serial_number, ibstate):
-    with open("monitor.txt", "r+") as file:
-        fd = file.fileno()
-        fcntl.flock(fd, fcntl.LOCK_EX)
-
-        try:
-            lines = file.readlines()
-            found = False
-            for i, line in enumerate(lines):
-                parts = line.strip().split()
-                if (
-                    len(parts) >= 7
-                    and parts[1] == serial_number
-                    and (parts[5] == "F" or parts[5] == "W")
-                ):
-                    if ibstate == "ok":
-                        lines[i] = (
-                            " ".join(parts[:5]) + " T " + " ".join(parts[6:]) + "\n"
-                        )
-                    else:
-                        lines[i] = (
-                            " ".join(parts[:5]) + " W " + " ".join(parts[6:]) + "\n"
-                        )
-                    found = True
-
-            if found:
-                file.seek(0)
-                file.truncate()
-                file.writelines(lines)
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+def update_ibstate(monitor_data, serial_number, ibstate):
+    found = False
+    for i, line in enumerate(monitor_data):
+        if i == 0:
+            continue
+        parts = line
+        if parts[1] == serial_number and parts[5] == "F" or parts[5] == "W":
+            if ibstate == "ok":
+                monitor_data[i][5] = "T"
+            else:
+                monitor_data[i][5] = "W"
+            found = True
+    return found, monitor_data
 
 
-def update_gpustate(serial_number, gpustate):
+def update_gpustate(monitor_data, serial_number, gpustate):
+    found = False
+    for i, line in enumerate(monitor_data):
+        if i == 0:
+            continue
+        parts = line
 
-    with open("monitor.txt", "r+") as file:
-        fd = file.fileno()
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        if parts[1] == serial_number and (parts[6] == "F" or parts[6] == "W"):
 
-        try:
-            lines = file.readlines()
+            if gpustate == "ok":
+                monitor_data[i][6] = "T"
+            else:
+                monitor_data[i][6] = "W"
+            found = True
 
-            found = False
-            for i, line in enumerate(lines):
-                parts = line.strip().split()
-                if (
-                    len(parts) >= 7
-                    and parts[1] == serial_number
-                    and (parts[6] == "F" or parts[6] == "W")
-                ):
-                    if gpustate == "ok":
-                        lines[i] = (
-                            " ".join(parts[:6]) + " T " + " ".join(parts[7:]) + "\n"
-                        )
-                    else:
-                        lines[i] = (
-                            " ".join(parts[:6]) + " W " + " ".join(parts[7:]) + "\n"
-                        )
-                    found = True
-
-            if found:
-                file.seek(0)
-                file.truncate()
-
-                file.writelines(lines)
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+    return found, monitor_data
 
 
-def update_finished_status(serial_number):
-    with open("monitor.txt", "r+") as file:
-        fd = file.fileno()
-        fcntl.flock(fd, fcntl.LOCK_EX)
+def update_finished_status(monitor_data, serial_number):
+    found = False
+    for i, line in enumerate(monitor_data):
+        if i == 0:
+            continue
+        parts = line
 
-        try:
-            lines = file.readlines()
+        if parts[1] == serial_number and (parts[7] == "F" or parts[7] == "W"):
+            monitor_data[i][7] = "T"
+            found = True
+    return found, monitor_data
 
-            found = False
-            for i, line in enumerate(lines):
-                parts = line.strip().split()
-                if (
-                    len(parts) >= 7
-                    and parts[1] == serial_number
-                    and (parts[7] == "F" or parts[7] == "W")
-                ):
-                    lines[i] = " ".join(parts[:7]) + " T " + " ".join(parts[8:]) + "\n"
-                    found = True
 
-            if found:
-                file.seek(0)
-                file.truncate()
-
-                file.writelines(lines)
-
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+def update_logname(monitor_data, serial_number, logname):
+    found = False
+    for i, line in enumerate(monitor_data):
+        if i == 0:
+            continue
+        parts = line
+        if parts[1] == serial_number:
+            monitor_data[i][8] = logname
+            found = True
+    return found, monitor_data
 
 
 # Installation Timeout
-def install_timeout():
-    with open("monitor.txt", "r+") as file:
-        fd = file.fileno()
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        try:
-            lines = file.readlines()
-            for i, line in enumerate(lines):
-                parts = line.strip().split()
-                if parts[7] == "F":
-                    lines[i] = " ".join(parts[:7]) + " W " + " ".join(parts[8:]) + "\n"
-            file.seek(0)
-            file.truncate()
-            file.writelines(lines)
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+def install_timeout(monitor_data):
+
+    for i, line in enumerate(monitor_data):
+        if i == 0:
+            continue
+        parts = line
+        if parts[7] == "F":
+            monitor_data[i][7] = "W"
+            found = True
+    return monitor_data
