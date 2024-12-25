@@ -133,7 +133,7 @@ def generation_monitor_temple(iplist_path):
     return monitor_data
 
 
-def update_installing_status(monitor_data, serial_number):
+def update_installing_status(monitor_data, serial_number, client_ip):
     found = False
     for i, line in enumerate(monitor_data):
         if i == 0:
@@ -142,8 +142,20 @@ def update_installing_status(monitor_data, serial_number):
         if parts[1] == serial_number and parts[3] == "F":
             monitor_data[i][3] = "T"
             found = True
-
-    return found, monitor_data
+            return found, monitor_data
+    node_serial = f"node{serial_number}"
+    new_entry = [
+        client_ip,
+        serial_number,
+        node_serial,
+        "T",
+        "F",
+        "F",
+        "F",
+        "F",
+        "click",
+    ]
+    return found, monitor_data.append(new_entry)
 
 
 def update_diskstate(monitor_data, serial_number, diskstate):

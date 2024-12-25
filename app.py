@@ -51,7 +51,6 @@ config_yaml_path = "/var/www/html/workspace/config.yaml"
 app.config["monitor_data"] = generation_monitor_temple(iplist_path)
 app.config["countMachines"] = len(app.config["monitor_data"]) - 1
 
-
 current_year = datetime.now().year
 
 # Network Speed DHCP config.yaml
@@ -63,7 +62,6 @@ dhcp_e = config_data["dhcp_e"]
 manger_ip = config_data["manager_ip"]
 compute_storage = config_data["compute_storage"]
 compute_passwd = config_data["compute_passwd"]
-
 
 total_ips = get_len_iprange(dhcp_s, dhcp_e)
 
@@ -178,9 +176,10 @@ def debug():
 @app.route("/receive_serial_s", methods=["POST"])
 def receive_serial_s():
     serial_number = request.form.get("serial")
+    client_ip = request.remote_addr
     if serial_number:
         found, updated_monitor_data = update_installing_status(
-            app.config["monitor_data"], serial_number
+            app.config["monitor_data"], serial_number, client_ip
         )
         if found:
             app.config["monitor_data"] = updated_monitor_data
