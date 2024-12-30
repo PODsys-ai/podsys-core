@@ -10,6 +10,7 @@ from functions import (
     update_gpustate,
     update_ibstate,
     update_finished_status,
+    update_finished_ip,
     install_timeout,
     parse_config,
     get_len_iprange,
@@ -49,7 +50,6 @@ config_yaml_path = "/var/www/html/workspace/config.yaml"
 
 # generation monitor.txt temple and Count the total number of machines in the iplist.txt
 app.config["monitor_data"] = generation_monitor_temple(iplist_path)
-app.config["countMachines"] = len(app.config["monitor_data"]) - 1
 
 current_year = datetime.now().year
 
@@ -116,7 +116,9 @@ def get_time():
                         break
 
     if app.config["isGetStartTime"]:
-        if app.config["countMachines"] != app.config["counts_receive_serial_e"]:
+        if app.config["counts_receive_serial_e"] != (
+            len(app.config["monitor_data"]) - 1
+        ):
             app.config["installTime"] = (
                 datetime.now().replace(microsecond=0) - app.config["startTime"]
             )
@@ -279,6 +281,20 @@ def receive_nfs_status():
     return "Get nfs status", 200
 
 
+@app.route("/receive_serial_ip", methods=["POST"])
+def receive_serial_ip():
+    serial_number = request.form.get("serial")
+    client_ip = request.remote_addr
+    if serial_number:
+        updated_monitor_data = update_finished_ip(
+            app.config["monitor_data"], serial_number, client_ip
+        )
+        app.config["monitor_data"] = updated_monitor_data
+        return "Get Serial number", 200
+    else:
+        return "No serial number", 400
+
+
 @app.route("/receive_serial_e", methods=["POST"])
 def receive_serial_e():
 
@@ -299,7 +315,7 @@ def receive_serial_e():
 
     app.config["counts_receive_serial_e"] = app.config["counts_receive_serial_e"] + 1
 
-    if app.config["countMachines"] == app.config["counts_receive_serial_e"]:
+    if app.config["counts_receive_serial_e"] == (len(app.config["monitor_data"]) - 1):
         app.config["endTime"] = datetime.now().replace(microsecond=0)
 
     if not app.config["isGetFirstEndtag"]:
@@ -312,9 +328,11 @@ def receive_serial_e():
         app.config["newEndtagTime"] = datetime.now().replace(microsecond=0)
 
     serial_number = request.form.get("serial")
+
     if serial_number:
         found, updated_monitor_data = update_finished_status(
-            app.config["monitor_data"], serial_number
+            app.config["monitor_data"],
+            serial_number,
         )
         if found:
             app.config["monitor_data"] = updated_monitor_data

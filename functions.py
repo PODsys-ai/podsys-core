@@ -144,6 +144,7 @@ def update_installing_status(monitor_data, serial_number, client_ip):
             found = True
             return found, monitor_data
     node_serial = f"node{serial_number}"
+    client_ip = f"{client_ip}/16"
     new_entry = [
         client_ip,
         serial_number,
@@ -226,6 +227,17 @@ def update_finished_status(monitor_data, serial_number):
             monitor_data[i][7] = "T"
             found = True
     return found, monitor_data
+
+
+def update_finished_ip(monitor_data, serial_number, client_ip):
+    for i, line in enumerate(monitor_data):
+        if i == 0:
+            continue
+        parts = line
+        if parts[1] == serial_number:
+            client_ip = f"{client_ip}/16"
+            monitor_data[i][0] = client_ip
+    return monitor_data
 
 
 def update_logname(monitor_data, serial_number, logname):
