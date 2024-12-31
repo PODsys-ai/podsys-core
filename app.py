@@ -149,7 +149,7 @@ def favicon():
 
 
 # debug mode
-# curl -X POST -d "serial=$SN&lsblk=$lsblk_output&ipa=$ipa_output" http://"$G_SERVER_IP":5000/debug
+# curl -X POST -d "serial=$SN&lsblk=$lsblk_output&ipa=$ipa_output" http://${SERVER_IP}:5000/debug
 @app.route("/debug", methods=["POST"])
 def debug():
     serial_number = request.form.get("serial")
@@ -174,7 +174,7 @@ def debug():
     return "Get Debug Info", 200
 
 
-# curl -X POST -d "serial=$SN" http://"${SERVER_IP}":5000/receive_serial_s
+# curl -X POST -d "serial=$SN" http://${SERVER_IP}:5000/receive_serial_s
 @app.route("/receive_serial_s", methods=["POST"])
 def receive_serial_s():
     serial_number = request.form.get("serial")
@@ -280,7 +280,7 @@ def receive_nfs_status():
         print("Error: receive_nfs_status")
     return "Get nfs status", 200
 
-
+# curl -X POST -d "serial=$SN" http://${SERVER_IP}:5000/receive_serial_ip
 @app.route("/receive_serial_ip", methods=["POST"])
 def receive_serial_ip():
     serial_number = request.form.get("serial")
@@ -294,7 +294,7 @@ def receive_serial_ip():
     else:
         return "No serial number", 400
 
-
+# curl -X POST -d "serial=$SN" http://${SERVER_IP}:5000/receive_serial_e
 @app.route("/receive_serial_e", methods=["POST"])
 def receive_serial_e():
 
