@@ -1,6 +1,7 @@
 *.spec
 dist/
 build/
+test/
 .envs/
 .env/
 .venv/
