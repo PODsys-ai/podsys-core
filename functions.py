@@ -133,6 +133,29 @@ def generation_monitor_temple(iplist_path):
     return monitor_data
 
 
+def load_iplist(iplist_path):
+    try:
+        with open(iplist_path, "r") as file:
+            lines = file.readlines()
+        iplist = []
+        for line in lines:
+            parts = line.strip().split()
+            iplist.append(
+                {
+                    "serial": parts[0],
+                    "hostname": parts[1],
+                    "ip": parts[2],
+                    "gateway": parts[3],
+                    "dns": parts[4],
+                    "ipoib": parts[5],
+                    "dockerip": parts[6],
+                }
+            )
+        return iplist
+    except FileNotFoundError:
+        return None
+
+
 def update_installing_status(monitor_data, serial_number, client_ip):
     found = False
     for i, line in enumerate(monitor_data):

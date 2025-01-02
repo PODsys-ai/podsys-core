@@ -4,6 +4,7 @@ from functions import (
     count_access,
     count_dnsmasq,
     generation_monitor_temple,
+    load_iplist,
     update_installing_status,
     update_logname,
     update_diskstate,
@@ -50,6 +51,7 @@ config_yaml_path = "/var/www/html/workspace/config.yaml"
 
 # generation monitor.txt temple and Count the total number of machines in the iplist.txt
 app.config["monitor_data"] = generation_monitor_temple(iplist_path)
+app.config["iplist"] = load_iplist(iplist_path)
 
 current_year = datetime.now().year
 
@@ -190,6 +192,31 @@ def receive_serial_s():
         return "No serial number.", 400
 
 
+def find_by_serial(serial):
+    if app.config["iplist"] is None:
+        return {"error": "iplist.txt file not found"}
+    for entry in app.config["iplist"]:
+        if entry["serial"] == serial:
+            return entry
+    return None
+
+# curl -X POST -d "serial=$SN" "http://${SERVER_IP}:5000/request_iplist"
+@app.route("/request_iplist", methods=["POST"])
+def request_iplist():
+    serial = request.form.get("serial")
+    if not serial:
+        return jsonify({"error": "Serial number is required"}), 400
+
+    entry = find_by_serial(serial)
+    if entry:
+        if "error" in entry:
+            return jsonify(entry), 500
+        else:
+            return jsonify(entry)
+    else:
+        return jsonify({"error": "Serial number not found"}), 404
+
+
 # curl -X POST -d "serial=$SN&diskstate=none|ok|nomatch" "http://${SERVER_IP}:5000/diskstate"
 @app.route("/diskstate", methods=["POST"])
 def diskstate():
@@ -280,6 +307,7 @@ def receive_nfs_status():
         print("Error: receive_nfs_status")
     return "Get nfs status", 200
 
+
 # curl -X POST -d "serial=$SN" http://${SERVER_IP}:5000/receive_serial_ip
 @app.route("/receive_serial_ip", methods=["POST"])
 def receive_serial_ip():
@@ -293,6 +321,7 @@ def receive_serial_ip():
         return "Get Serial number", 200
     else:
         return "No serial number", 400
+
 
 # curl -X POST -d "serial=$SN" http://${SERVER_IP}:5000/receive_serial_e
 @app.route("/receive_serial_e", methods=["POST"])
