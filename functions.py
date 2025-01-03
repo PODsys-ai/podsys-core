@@ -13,19 +13,19 @@ manager_nic:enp61s0f2
 compute_passwd:123
 compute_storage:sda
 """
-    manager_ip_match = re.search(r"manager_ip:(\S+)", content)
-    manager_nic_match = re.search(r"manager_nic:(\S+)", content)
-    dhcp_s_match = re.search(r"dhcp_s:(\S+)", content)
-    dhcp_e_match = re.search(r"dhcp_e:(\S+)", content)
-    compute_passwd_match = re.search(r"compute_passwd:(\S+)", content)
-    compute_storage_match = re.search(r"compute_storage:(\S+)", content)
+    manager_ip_match = re.search(r"manager_ip:\s*(\S+)", content)
+    manager_nic_match = re.search(r"manager_nic:\s*(\S+)", content)
+    dhcp_s_match = re.search(r"dhcp_s:\s*(\S+)", content)
+    dhcp_e_match = re.search(r"dhcp_e:\s*(\S+)", content)
+    compute_passwd_match = re.search(r"compute_passwd:\s*(\S+)", content)
+    compute_storage_match = re.search(r"compute_storage:\s*(\S+)", content)
 
-    manager_ip = manager_ip_match.group(1) if manager_ip_match else None
-    manager_nic = manager_nic_match.group(1) if manager_nic_match else None
-    dhcp_s = dhcp_s_match.group(1) if dhcp_s_match else None
-    dhcp_e = dhcp_e_match.group(1) if dhcp_e_match else None
-    compute_passwd = compute_passwd_match.group(1) if compute_passwd_match else None
-    compute_storage = compute_storage_match.group(1) if compute_storage_match else None
+    manager_ip = manager_ip_match.group(1).strip() if manager_ip_match else None
+    manager_nic = manager_nic_match.group(1).strip() if manager_nic_match else None
+    dhcp_s = dhcp_s_match.group(1).strip() if dhcp_s_match else None
+    dhcp_e = dhcp_e_match.group(1).strip() if dhcp_e_match else None
+    compute_passwd = compute_passwd_match.group(1).strip() if compute_passwd_match else None
+    compute_storage = compute_storage_match.group(1).strip() if compute_storage_match else None
 
     return {
         "manager_ip": manager_ip,
