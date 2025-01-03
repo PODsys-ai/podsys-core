@@ -5,7 +5,7 @@
 **The size of the packaged file is smaller using this method**
 ### Create container
 ``` shell
-docker run --name podsys-monitor-build --privileged=true -it -p 5000:5000 -v D:/podsys-monitor:/root/podsys-monitor  ubuntu:22.04 /bin/bash
+docker run --name podsys-monitor-build --privileged=true -it -p 5000:5000 -v D:/podsys-monitor:/root/podsys-monitor --restart always ubuntu:22.04 /bin/bash
 ```
 ### install env in container
 ``` shell
