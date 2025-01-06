@@ -1,7 +1,6 @@
-from flask import Flask, render_template, jsonify, request, abort
+from flask import Flask, render_template, jsonify, request, abort, send_file
 from datetime import datetime
 from functions import (
-    count_access,
     count_dnsmasq,
     generation_monitor_temple,
     load_iplist,
@@ -34,7 +33,12 @@ app.config["firstInstallTime"] = None
 app.config["installTimeDiff"] = None
 app.config["finishedCount"] = 0
 
-# counts of common ib nvidia cuda when use p2p or nfs mode
+# counts of sent files
+app.config["count_initrd"] = 0
+app.config["count_vmlinuz"] = 0
+app.config["count_iso"] = 0
+app.config["count_userdata"] = 0
+app.config["count_preseed"] = 0
 app.config["count_common"] = 0
 app.config["count_ib"] = 0
 app.config["count_nvidia"] = 0
@@ -44,10 +48,9 @@ app.config["count_cuda"] = 0
 app.config["counts_receive_serial_e"] = 0
 app.config["isFinished"] = False
 
-iplist_path = "/var/www/html/workspace/iplist.txt"
-access_log_path = "/var/www/html/workspace/log/access.log"
-dnsmasq_log_path = "/var/www/html/workspace/log/dnsmasq.log"
-config_yaml_path = "/var/www/html/workspace/config.yaml"
+iplist_path = "/workspace/iplist.txt"
+dnsmasq_log_path = "/workspace/log/dnsmasq.log"
+config_yaml_path = "/workspace/config.yaml"
 
 # generation monitor.txt temple and Count the total number of machines in the iplist.txt
 app.config["monitor_data"] = generation_monitor_temple(iplist_path)
@@ -80,6 +83,36 @@ def updateusedip():
     except Exception as e:
         print(f"An error occurred while reading the file: {e}")
         return jsonify({"usedip": 0}), 500
+
+
+@app.route("/<path:filepath>")
+def download_file(filepath):
+    BASE_DIR = "/"
+    file_path = os.path.join(BASE_DIR, filepath)
+    if os.path.isfile(file_path):
+        if file_path == "/jammy/initrd":
+            app.config["count_initrd"] += 1
+        elif file_path == "/jammy/vmlinuz":
+            app.config["count_vmlinuz"] += 1
+        elif file_path == "/workspace/ubuntu-22.04.5-live-server-amd64.iso":
+            app.config["count_iso"] += 1
+        elif file_path == "/jammy/user-data":
+            app.config["count_userdata"] += 1
+        elif file_path == "/jammy/preseed.sh":
+            app.config["count_preseed"] += 1
+        elif file_path == "/workspace/drivers/common.tgz":
+            app.config["count_common"] += 1
+        elif file_path == "/workspace/drivers/ib.tgz":
+            app.config["count_ib"] += 1
+        elif file_path == "/workspace/drivers/nvidia.tgz":
+            app.config["count_nvidia"] += 1
+        elif file_path == "/workspace/drivers/cuda_12.2.2_535.104.05_linux.run":
+            app.config["count_cuda"] += 1
+
+        return send_file(file_path, as_attachment=True)
+
+    else:
+        abort(404, description="File not found")
 
 
 @app.route("/speed")
@@ -159,9 +192,7 @@ def debug():
     ipa_output = request.form.get("ipa")
 
     if serial_number:
-        with open(
-            f"/var/www/html/workspace/log/{serial_number}_debug.log", "a"
-        ) as log_file:
+        with open(f"/workspace/log/{serial_number}_debug.log", "a") as log_file:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             log_file.write(current_time + "\n")
             log_file.write("---------------Debug-info---------------" + "\n" + "\n")
@@ -173,7 +204,7 @@ def debug():
                 log_file.write(ipa_output + "\n" + "\n")
             log_file.write("---------------Debug-end---------------" + "\n" + "\n")
 
-    return "Get Debug Info", 200
+    return "", 204
 
 
 # curl -X POST -d "serial=$SN" http://${SERVER_IP}:5000/receive_serial_s
@@ -187,9 +218,9 @@ def receive_serial_s():
         )
         if found:
             app.config["monitor_data"] = updated_monitor_data
-        return "Get Serial number", 200
+        return "", 204
     else:
-        return "No serial number.", 400
+        return "", 400
 
 
 def find_by_serial(serial):
@@ -200,21 +231,22 @@ def find_by_serial(serial):
             return entry
     return None
 
+
 # curl -X POST -d "serial=$SN" "http://${SERVER_IP}:5000/request_iplist"
 @app.route("/request_iplist", methods=["POST"])
 def request_iplist():
     serial = request.form.get("serial")
     if not serial:
-        return jsonify({"error": "Serial number is required"}), 400
+        return "", 400
 
     entry = find_by_serial(serial)
     if entry:
         if "error" in entry:
-            return jsonify(entry), 500
+            return "", 404
         else:
             return jsonify(entry)
     else:
-        return jsonify({"error": "Serial number not found"}), 404
+        return "", 404
 
 
 # curl -X POST -d "serial=$SN&diskstate=none|ok|nomatch" "http://${SERVER_IP}:5000/diskstate"
@@ -228,9 +260,9 @@ def diskstate():
         )
         if found:
             app.config["monitor_data"] = updated_monitor_data
-        return "Get diskstate", 200
+        return "", 204
     else:
-        return "No diskstate", 400
+        return "", 400
 
 
 # curl -X POST -d "serial=$SN&ibstate=ok" "http://${SERVER_IP}:5000/ibstate"
@@ -244,9 +276,9 @@ def ibstate():
         )
         if found:
             app.config["monitor_data"] = updated_monitor_data
-        return "Get ibstate", 200
+        return "", 204
     else:
-        return "No ibstate", 400
+        return "", 400
 
 
 # curl -X POST -d "serial=$SN&gpustate=ok" "http://${SERVER_IP}:5000/gpustate"
@@ -260,9 +292,9 @@ def gpustate():
         )
         if found:
             app.config["monitor_data"] = updated_monitor_data
-        return "Get gpustate", 200
+        return "", 204
     else:
-        return "No gpustate", 400
+        return "", 400
 
 
 # curl -X POST -d "serial=$SN&log=$log_name" "http://${SERVER_IP}:5000/updatelog"
@@ -276,9 +308,9 @@ def updatelog():
         )
         if found:
             app.config["monitor_data"] = updated_monitor_data
-        return "Get Serial number", 200
+        return "", 204
     else:
-        return "No serial number.", 400
+        return "", 400
 
 
 # curl -X POST  "http://${SERVER_IP}:5000/receive_p2p_status"
@@ -288,7 +320,7 @@ def receive_p2p_status():
     app.config["count_ib"] = app.config["count_ib"] + 1
     app.config["count_nvidia"] = app.config["count_nvidia"] + 1
     app.config["count_cuda"] = app.config["count_cuda"] + 1
-    return "Get p2p status", 200
+    return "", 204
 
 
 # curl -X POST -d "file=common" "http://${SERVER_IP}:5000/receive_nfs_status"
@@ -304,8 +336,8 @@ def receive_nfs_status():
     elif file == "cuda":
         app.config["count_cuda"] = app.config["count_cuda"] + 1
     else:
-        print("Error: receive_nfs_status")
-    return "Get nfs status", 200
+        print("Error: no such file")
+    return "", 204
 
 
 # curl -X POST -d "serial=$SN" http://${SERVER_IP}:5000/receive_serial_ip
@@ -318,9 +350,9 @@ def receive_serial_ip():
             app.config["monitor_data"], serial_number, client_ip
         )
         app.config["monitor_data"] = updated_monitor_data
-        return "Get Serial number", 200
+        return "", 204
     else:
-        return "No serial number", 400
+        return "", 400
 
 
 # curl -X POST -d "serial=$SN" http://${SERVER_IP}:5000/receive_serial_e
@@ -366,16 +398,16 @@ def receive_serial_e():
         if found:
             app.config["monitor_data"] = updated_monitor_data
 
-        return "Get Serial number", 200
+        return "", 204
     else:
-        return "No serial number", 400
+        return "", 400
 
 
-# READ file
-@app.route("/<path:file_path>")
+# READ logs
+@app.route("/logs/<path:file_path>")
 def open_file(file_path):
     try:
-        with open("/var/www/html/workspace/log/" + file_path, "r") as f:
+        with open("/workspace/log/" + file_path, "r") as f:
             file_content = f.read()
         return render_template(
             "file.html", file_path=file_path, file_content=file_content
@@ -388,37 +420,19 @@ def open_file(file_path):
 def refresh_data():
     cnt_start_tag = count_dnsmasq(dnsmasq_log_path)
 
-    (
-        cnt_Initrd,
-        cnt_vmlinuz,
-        cnt_ISO,
-        cnt_userdata,
-        cnt_preseed,
-        cnt_common,
-        cnt_ib,
-        cnt_nvidia,
-        cnt_cuda,
-    ) = count_access(access_log_path)
-
-    if os.getenv("download_mode") in ["p2p", "nfs"]:
-        cnt_ib = app.config["count_ib"]
-        cnt_nvidia = app.config["count_nvidia"]
-        cnt_cuda = app.config["count_cuda"]
-        cnt_common = app.config["count_common"]
-
     cnt_end_tag = app.config["counts_receive_serial_e"]
 
     data = {
         "cnt_start_tag": cnt_start_tag,
-        "cnt_Initrd": cnt_Initrd,
-        "cnt_vmlinuz": cnt_vmlinuz,
-        "cnt_ISO": cnt_ISO,
-        "cnt_userdata": cnt_userdata,
-        "cnt_preseed": cnt_preseed,
-        "cnt_common": cnt_common,
-        "cnt_ib": cnt_ib,
-        "cnt_nvidia": cnt_nvidia,
-        "cnt_cuda": cnt_cuda,
+        "cnt_Initrd": app.config["count_initrd"],
+        "cnt_vmlinuz": app.config["count_vmlinuz"],
+        "cnt_ISO": app.config["count_iso"],
+        "cnt_userdata": app.config["count_userdata"],
+        "cnt_preseed": app.config["count_preseed"],
+        "cnt_common": app.config["count_common"],
+        "cnt_ib": app.config["count_ib"],
+        "cnt_nvidia": app.config["count_nvidia"],
+        "cnt_cuda": app.config["count_cuda"],
         "cnt_end_tag": cnt_end_tag,
     }
     return jsonify(data)

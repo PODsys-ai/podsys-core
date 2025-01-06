@@ -45,59 +45,6 @@ def get_len_iprange(start_ip, end_ip):
     return total_ips
 
 
-# count for ipxe
-def count_access(access_log_path):
-    Initrd_count = 0
-    vmlinuz_count = 0
-    iso_count = 0
-    userdata_count = 0
-    preseed_count = 0
-    common_count = 0
-    ib_count = 0
-    nvidia_count = 0
-    cuda_count = 0
-
-    try:
-        with open(access_log_path, "r") as file:
-            for line in file:
-                if "initrd" in line:
-                    Initrd_count += 1
-                if "vmlinuz" in line:
-                    vmlinuz_count += 1
-                if "ubuntu-22.04.5-live" in line:
-                    iso_count += 1
-                if "user-data" in line:
-                    userdata_count += 1
-                if "preseed.sh" in line:
-                    preseed_count += 1
-                if "common.tgz" in line:
-                    common_count += 1
-                if "ib.tgz" in line:
-                    ib_count += 1
-                if "nvidia.tgz" in line:
-                    nvidia_count += 1
-                if "cuda" in line:
-                    cuda_count += 1
-    except FileNotFoundError:
-        print(f"Error: The file {access_log_path} does not exist.")
-        return (-1, -1, -1, -1, -1, -1, -1, -1, -1)
-    except IOError as e:
-        print(f"An error occurred while reading the file: {e}")
-        return (-1, -1, -1, -1, -1, -1, -1, -1, -1)
-
-    return (
-        Initrd_count // 2,
-        vmlinuz_count // 2,
-        iso_count // 2,
-        userdata_count // 2,
-        preseed_count // 2,
-        common_count // 2,
-        ib_count // 2,
-        nvidia_count // 2,
-        cuda_count // 2,
-    )
-
-
 # for ipxe
 def count_dnsmasq(dnsmasq_log_path):
     starttag_count = 0
